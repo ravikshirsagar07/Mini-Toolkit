@@ -14,7 +14,9 @@ st.set_page_config(
 )
 
 st.title("🤖 Mini AI Toolkit")
-st.write("Sentiment Analysis | Question Answering | Text Generation | Text Summarization")
+st.write(
+    "Sentiment Analysis | Question Answering | NER | Summarization"
+)
 
 # =====================================
 # LOAD MODELS
@@ -23,27 +25,29 @@ st.write("Sentiment Analysis | Question Answering | Text Generation | Text Summa
 @st.cache_resource
 def load_models():
 
-    sentiment_classifier = pipeline(
+    sentiment_model = pipeline(
         "sentiment-analysis",
         model="distilbert-base-uncased-finetuned-sst-2-english"
     )
 
-    qa_pipeline = pipeline(
-        "question-answering",
-        model="distilbert-base-cased-distilled-squad"
+    qa_model = pipeline(
+        task="question-answering",
+        model="distilbert-base-cased-distilled-squad",
+        tokenizer="distilbert-base-cased-distilled-squad"
     )
 
-    generator = pipeline(
-        "text-generation",
-        model="distilgpt2"
+    ner_model = pipeline(
+        "ner",
+        aggregation_strategy="simple"
     )
 
-    return sentiment_classifier, qa_pipeline, generator
+    return sentiment_model, qa_model, ner_model
 
-sentiment_classifier, qa_pipeline, generator = load_models()
+
+sentiment_model, qa_model, ner_model = load_models()
 
 # =====================================
-# TEXT SUMMARIZER
+# SUMMARIZATION FUNCTION
 # =====================================
 
 def summarize(text, num_sentences=3):
@@ -85,6 +89,7 @@ def summarize(text, num_sentences=3):
     summary = []
 
     for sentence in sentences:
+
         if sentence in top_sentences:
             summary.append(sentence)
 
@@ -100,14 +105,14 @@ paragraph = st.text_area(
 )
 
 question = st.text_input(
-    "Enter Question Based On Paragraph"
+    "Enter Question"
 )
 
 # =====================================
-# PROCESS BUTTON
+# RUN BUTTON
 # =====================================
 
-if st.button("Run AI Toolkit"):
+if st.button("Analyze"):
 
     if paragraph.strip() == "":
         st.warning("Please enter a paragraph.")
@@ -119,9 +124,7 @@ if st.button("Run AI Toolkit"):
 
     st.subheader("😊 Sentiment Analysis")
 
-    sentiment_result = sentiment_classifier(
-        paragraph
-    )
+    sentiment_result = sentiment_model(paragraph)
 
     st.success(
         f"Sentiment: {sentiment_result[0]['label']}"
@@ -139,7 +142,7 @@ if st.button("Run AI Toolkit"):
 
         st.subheader("❓ Question Answering")
 
-        answer = qa_pipeline(
+        answer = qa_model(
             question=question,
             context=paragraph
         )
@@ -153,29 +156,32 @@ if st.button("Run AI Toolkit"):
         )
 
     # =====================================
-    # TEXT GENERATION
+    # NER
     # =====================================
 
-    st.subheader("✍️ Text Generation")
+    st.subheader("🏷 Named Entity Recognition")
 
-    generated = generator(
-        paragraph,
-        max_length=120,
-        num_return_sequences=1
-    )
+    entities = ner_model(paragraph)
 
-    st.write(
-        generated[0]["generated_text"]
-    )
+    if entities:
+
+        for entity in entities:
+
+            st.write(
+                f"Entity: {entity['word']} | Type: {entity['entity_group']}"
+            )
+
+    else:
+        st.warning("No entities found.")
 
     # =====================================
     # SUMMARY
     # =====================================
 
-    st.subheader("📄 Text Summary")
+    st.subheader("📄 Summary")
 
     summary = summarize(paragraph)
 
     st.write(summary)
 
-    st.success("Mini AI Toolkit Completed Successfully!")
+    st.success("Analysis Completed Successfully!")
